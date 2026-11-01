@@ -515,3 +515,49 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+.update-btn, .cleanup-btn {
+  width: 100%;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .18s, border-color .18s, transform .18s;
+}
+.update-btn {
+  border-color: #4779e5;
+  background: #4b7ff0;
+  color: #fff;
+}
+.update-btn:hover:not(:disabled) { background: #3e71e4; }
+.update-btn:disabled { opacity: .56; cursor: wait; }
+.cleanup-btn {
+  border-color: #c4b45a;
+  background: #f3e8ab;
+  color: #5c4a13;
+}
+.cleanup-btn:hover:not(:disabled) { background: #e6d685; }
+.cleanup-btn:disabled { opacity: .56; cursor: wait; }
+
+.update-result {
+  font-size: 9px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+.update-result pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: #f3f4f6;
+  border-radius: 6px;
+  padding: 6px 8px;
+  max-height: 120px;
+  overflow: auto;
+}

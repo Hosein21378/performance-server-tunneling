@@ -149,6 +149,10 @@ function DashboardClient({ initialNodes, initialTunnels }: DashboardClientProps)
   const [joinError, setJoinError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [toastMessage, setToastMessage] = useState("");
+  const [updateResult, setUpdateResult] = useState<{ ok: boolean; logs: string[] } | null>(null);
+  const [cleanupResult, setCleanupResult] = useState<{ ok: boolean; removedNodes: number; removedTunnels: number; message: string } | null>(null);
+  const [updating, setUpdating] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
 
   const visibleNodes = nodes.filter((node) => `${node.name} ${node.code} ${node.city} ${node.country}`.toLowerCase().includes(query.toLowerCase()));
   const edgeNodes = nodes.filter((node) => node.role === "edge");
@@ -262,6 +266,39 @@ function DashboardClient({ initialNodes, initialTunnels }: DashboardClientProps)
     }
   }
 
+  async function runUpdate() {
+    setUpdating(true);
+    setUpdateResult(null);
+    try {
+      const res = await fetch("/api/update", { method: "POST", credentials: "include" });
+      const json = (await res.json()) as { ok?: boolean; logs?: string[]; error?: string };
+      if (!res.ok) throw new Error(json.error ?? "آپدیت ناموفق بود.");
+      setUpdateResult({ ok: !!json.ok, logs: json.logs ?? [] });
+    } catch (cause) {
+      setUpdateResult({ ok: false, logs: [cause instanceof Error ? cause.message : "ارتباط با پنل برقرار نشد."] });
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  async function runCleanupDemo() {
+    setCleaning(true);
+    setCleanupResult(null);
+    try {
+      const res = await fetch("/api/nodes/cleanup-demo", { method: "POST", credentials: "include" });
+      const json = (await res.json()) as { ok?: boolean; removedNodes?: number; removedTunnels?: number; message?: string };
+      if (!res.ok) throw new Error(json.message ?? "پاک‌سازی ناموفق بود.");
+      setCleanupResult({ ok: !!json.ok, removedNodes: json.removedNodes ?? 0, removedTunnels: json.removedTunnels ?? 0, message: json.message ?? "" });
+      if (json.ok) {
+        setRefreshKey((k) => k + 1);
+      }
+    } catch (cause) {
+      setCleanupResult({ ok: false, removedNodes: 0, removedTunnels: 0, message: cause instanceof Error ? cause.message : "ارتباط با پنل برقرار نشد." });
+    } finally {
+      setCleaning(false);
+    }
+  }
+
   function startEdit(node: NodeData) {
     setEditingId(node.id);
     setForm({ name: node.name, country: node.country, city: node.city, role: node.role as any, overlayIp: node.overlayIp });
@@ -309,6 +346,32 @@ function DashboardClient({ initialNodes, initialTunnels }: DashboardClientProps)
             <p>یک توکن یک‌بار مصرف بسازید و دستور نمایش داده‌شده را روی سرور هدف اجرا کنید.</p>
             <button type="button" onClick={() => setModal("add-node")}>سرور جدید <Icon name="plus" size={15} /></button>
           </div>
+
+          <div className="sidebar-help-card" style={{ marginTop: 16 }}>
+            <span className="help-icon"><Icon name="refresh" size={17} /></span>
+            <strong>به‌روزرسانی پنل</strong>
+            <p>کد را از گیت‌هاب بکشید و سرویس را دوباره بسازید.</p>
+            <button type="button" onClick={runUpdate} disabled={updating} className="update-btn">{updating ? "در حال آپدیت..." : "آپدیت پنل"}</button>
+            {updateResult && (
+              <div className="update-result" style={{ marginTop: 8 }}>
+                {updateResult.ok ? "✓ آپدیت انجام شد" : "✗ خطا در آپدیت"}
+                <pre style={{ fontSize: "10px", marginTop: 4, overflowX: "auto", color: "#6b7280" }}>{updateResult.logs.join("\n")}</pre>
+              </div>
+            )}
+          </div>
+
+          <div className="sidebar-help-card" style={{ marginTop: 16 }}>
+            <span className="help-icon"><Icon name="shield" size={17} /></span>
+            <strong>پاک‌سازی داده‌های نمایشی</strong>
+            <p>سرورهای نمونه (تهران، فرانکفورت، آمستردام، استانبول) را حذف کنید.</p>
+            <button type="button" onClick={runCleanupDemo} disabled={cleaning} className="cleanup-btn">{cleaning ? "در حال حذف..." : "حذف نمایشی‌ها"}</button>
+            {cleanupResult && (
+              <div className="update-result" style={{ marginTop: 8 }}>
+                {cleanupResult.ok ? `✓ ${cleanupResult.removedNodes} سرور، ${cleanupResult.removedTunnels} تونل حذف شد` : `✗ ${cleanupResult.message}`}
+              </div>
+            )}
+          </div>
+
           <div className="sidebar-profile">
             <div className="profile-avatar">ر</div>
             <div className="profile-details"><strong>مدیر شبکه</strong><small>حساب محلی</small></div>

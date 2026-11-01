@@ -54,7 +54,8 @@ export async function POST(request: Request) {
   const plain = randomBytes(24).toString("hex");
   const tokenHash = createHash("sha256").update(plain).digest("hex");
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-  const code = `${name.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-")}-${Date.now()}`;
+  const slug = name.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "node";
+  const code = `${slug}-${Date.now()}`;
 
   const [token] = await db
     .insert(nodeJoinTokens)

@@ -58,7 +58,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "آدرس Overlay را وارد کنید." }, { status: 400 });
   }
 
-  const code = `${name.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-")}-${Date.now()}`;
+  const slug = name.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "node";
+  const code = `${slug}-${Date.now()}`;
 
   const [node] = await db
     .insert(networkNodes)

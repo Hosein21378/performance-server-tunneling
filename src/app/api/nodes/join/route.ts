@@ -45,7 +45,8 @@ export async function GET(request: Request) {
 
   await db.update(nodeJoinTokens).set({ usedAt: new Date() }).where(eq(nodeJoinTokens.id, t.id));
 
-  const code = `${t.name.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-")}-${Date.now()}`;
+  const slug = t.name.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "node";
+  const code = `${slug}-${Date.now()}`;
 
   const [node] = await db
     .insert(networkNodes)

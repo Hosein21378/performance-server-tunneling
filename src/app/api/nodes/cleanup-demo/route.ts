@@ -1,56 +1,62 @@
-import { eq, or } from "drizzle-orm";
-import { cookies } from "next/headers";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
-import { isValidSessionToken, SESSION_COOKIE_NAME } from "@/lib/auth";
 import { networkNodes, networkTunnels } from "@/db/schema";
+import { requireAdmin } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
-async function requireSession() {
-  const cookieStore = await cookies();
-  if (!isValidSessionToken(cookieStore.get(SESSION_COOKIE_NAME)?.value)) {
-    return Response.json({ error: "ابتدا وارد پنل شوید." }, { status: 401 });
-  }
-  return null;
-}
+// Exact records seeded by the original preview. Never delete a modified or
+// enrolled node, or a node that is referenced by a non-preview tunnel.
+const examples = [
+  { code: "IR-TEH-01", name: "هستهٔ تهران", overlayIp: "10.84.0.1/24" },
+  { code: "DE-FRA-01", name: "لبهٔ فرانکفورت", overlayIp: "10.84.0.2/24" },
+  { code: "NL-AMS-01", name: "لبهٔ آمستردام", overlayIp: "10.84.0.3/24" },
+  { code: "TR-IST-01", name: "لبهٔ استانبول", overlayIp: "10.84.0.4/24" },
+] as const;
+const previewRoutes: Record<string, string> = {
+  "DE-FRA-01": "مسیر تهران ـ فرانکفورت",
+  "NL-AMS-01": "مسیر تهران ـ آمستردام",
+  "TR-IST-01": "مسیر تهران ـ استانبول",
+};
 
-const DEMO_CODES = ["IR-TEH-01", "DE-FRA-01", "NL-AMS-01", "TR-IST-01"];
-
-export async function POST() {
-  const auth = await requireSession();
+export async function POST(request: Request) {
+  const auth = await requireAdmin(request);
   if (auth) return auth;
 
-  const conditions = DEMO_CODES.map((code) => eq(networkNodes.code, code));
+  const result = await db.transaction(async (tx) => {
+    const oldNodes = await tx.select().from(networkNodes).where(and(
+      or(...examples.map((item) => and(
+        eq(networkNodes.code, item.code),
+        eq(networkNodes.name, item.name),
+        eq(networkNodes.overlayIp, item.overlayIp),
+      ))),
+      isNull(networkNodes.publicIp),
+      isNull(networkNodes.agentTokenHash),
+      isNull(networkNodes.lastSeenAt),
+    )).for("update");
+    if (!oldNodes.length) return { removedNodes: 0, removedTunnels: 0, skippedNodes: 0 };
 
-  const demoNodes = await db
-    .select({ id: networkNodes.id })
-    .from(networkNodes)
-    .where(or(...conditions));
-
-  let removedTunnels = 0;
-  let removedNodes = 0;
-
-  if (demoNodes.length > 0) {
-    const demoIds = demoNodes.map((n) => n.id);
-
-    const delTunnels = await db
-      .delete(networkTunnels)
-      .where(
-        or(
-          ...demoIds.map((id) => eq(networkTunnels.targetNodeId, id)),
-          ...demoIds.map((id) => eq(networkTunnels.sourceNodeId, id)),
-        ),
-      );
-    removedTunnels = delTunnels.rowCount ?? 0;
-
-    const delNodes = await db.delete(networkNodes).where(or(...conditions));
-    removedNodes = delNodes.rowCount ?? 0;
-  }
-
-  return Response.json({
-    ok: true,
-    removedNodes,
-    removedTunnels,
-    message: "داده‌های نمایشی از دیتابیس حذف شدند.",
+    const routes = await tx.select().from(networkTunnels).for("update");
+    const byId = new Map(oldNodes.map((node) => [node.id, node]));
+    const isPreviewRoute = (route: typeof networkTunnels.$inferSelect) => {
+      const source = byId.get(route.sourceNodeId);
+      const target = byId.get(route.targetNodeId);
+      return source?.code === "IR-TEH-01" && !!target && previewRoutes[target.code] === route.name;
+    };
+    const removable = oldNodes.filter((node) => routes
+      .filter((route) => route.sourceNodeId === node.id || route.targetNodeId === node.id)
+      .every(isPreviewRoute));
+    const ids = removable.map((node) => node.id);
+    const routeIds = routes.filter((route) => isPreviewRoute(route) &&
+      (ids.includes(route.sourceNodeId) || ids.includes(route.targetNodeId))).map((route) => route.id);
+    const removedRoutes = routeIds.length
+      ? await tx.delete(networkTunnels).where(inArray(networkTunnels.id, routeIds)).returning({ id: networkTunnels.id })
+      : [];
+    const removedNodes = ids.length
+      ? await tx.delete(networkNodes).where(inArray(networkNodes.id, ids)).returning({ id: networkNodes.id })
+      : [];
+    return { removedNodes: removedNodes.length, removedTunnels: removedRoutes.length, skippedNodes: oldNodes.length - ids.length };
   });
+
+  return Response.json({ ok: true, ...result });
 }

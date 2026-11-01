@@ -36,7 +36,7 @@ export function createSessionToken() {
 }
 
 export function isValidSessionToken(token: string | undefined) {
-  if (!token) return false;
+  if (!isPasswordConfigured() || !token) return false;
   const [payload, signature, ...rest] = token.split(".");
   if (!payload || !signature || rest.length > 0) return false;
 

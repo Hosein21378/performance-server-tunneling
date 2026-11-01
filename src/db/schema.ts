@@ -16,7 +16,12 @@ export const networkNodes = pgTable("network_nodes", {
   city: text("city").notNull(),
   role: text("role").notNull().default("edge"),
   overlayIp: text("overlay_ip").notNull(),
-  status: text("status").notNull().default("online"),
+  publicIp: text("public_ip"),
+  agentTokenHash: text("agent_token_hash"),
+  agentHostname: text("agent_hostname"),
+  agentVersion: text("agent_version"),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+  status: text("status").notNull().default("pending"),
   latencyMs: integer("latency_ms").notNull().default(0),
   loadPercent: integer("load_percent").notNull().default(0),
   downloadMbps: real("download_mbps").notNull().default(0),
@@ -54,6 +59,7 @@ export const networkTunnels = pgTable(
 
 export const nodeJoinTokens = pgTable("node_join_tokens", {
   id: serial("id").primaryKey(),
+  nodeId: integer("node_id").references(() => networkNodes.id, { onDelete: "cascade" }),
   code: text("code").notNull(),
   name: text("name").notNull(),
   country: text("country").notNull(),

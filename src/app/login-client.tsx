@@ -100,8 +100,8 @@ function LoginClient({ passwordConfigured }: LoginClientProps) {
         </div>
 
         <div className="login-footer">
-          <span>نسخهٔ نمایشی ۰.۱.۰</span>
-          <span>داده‌های داشبورد نمونه‌اند</span>
+          <span>کنسول مدیریت رَبط</span>
+          <span>دسترسی اختصاصی مدیر</span>
         </div>
       </section>
     </main>

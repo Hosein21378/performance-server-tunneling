@@ -51,3 +51,17 @@ export const networkTunnels = pgTable(
     ),
   ],
 );
+
+export const nodeJoinTokens = pgTable("node_join_tokens", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull(),
+  name: text("name").notNull(),
+  country: text("country").notNull(),
+  city: text("city").notNull(),
+  role: text("role").notNull().default("edge"),
+  overlayIp: text("overlay_ip").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
